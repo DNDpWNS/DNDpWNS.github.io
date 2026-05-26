@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EduPlan AI - 맞춤형 학습 & 복습 플래너</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Pretendard:wght@400;600;700&display=swap');
+        body { font-family: 'Pretendard', sans-serif; background-color: #f8fafc; }
+        .glass-card { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); }
+        .animate-fade-in { animation: fadeIn 0.5s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .sat-btn { transition: all 0.2s; cursor: pointer; }
+    </style>
+</head>
+<body class="text-slate-800 min-h-screen">
+
+    <nav class="bg-indigo-800 text-white p-4 sticky top-0 z-50 shadow-xl">
+        <div class="container mx-auto flex justify-between items-center">
+            <h1 class="text-xl md:text-2xl font-bold flex items-center gap-2">
+                <i class="fas fa-graduation-cap"></i> EduPlan AI <span class="text-xs font-light bg-indigo-600 px-2 py-1 rounded">2026 학습 최적화</span>
+            </h1>
+            <div id="current-info" class="text-xs md:text-sm opacity-90 text-right">
+                <p id="nav-date">2026년 5월 26일 (화)</p>
+                <p id="nav-school">새로남기독중고등학교</p>
+            </div>
+        </div>
+    </nav>
+
+    <main class="container mx-auto py-6 px-4">
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+
+            <div class="lg:col-span-5 space-y-6">
+                
+                <section class="glass-card rounded-2xl p-6 shadow-md border border-indigo-100">
+                    <h2 class="text-lg font-bold mb-4 text-indigo-900 flex items-center gap-2">
+                        <i class="fas fa-user-graduate"></i> 기본 정보 설정
+                    </h2>
+                    
+                    <div class="space-y-4 mb-6">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 mb-1">일기 작성 날짜 (오늘)</label>
+                            <input type="date" id="target-date" value="2026-05-26" class="w-full p-2 border rounded-lg text-sm bg-slate-50 focus:ring-2 focus:ring-indigo-500 outline-none">
+                        </div>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-xs font-bold text-slate-500 mb-1">학년</label>
+                                <select id="user-grade" class="w-full p-2 border rounded-lg text-sm bg-slate-50">
+                                    <option value="1">1학년</option>
+                                    <option value="2" selected>2학년</option>
+                                    <option value="3">3학년</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-500 mb-1">학급(반)</label>
+                                <select id="user-class" class="w-full p-2 border rounded-lg text-sm bg-slate-50">
+                                    <option value="1">1반</option>
+                                    <option value="2" selected>2반</option>
+                                    <option value="3">3반</option>
+                                    <option value="4">4반</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <h2 class="text-sm font-bold mb-3 text-slate-700">시간표 데이터 업로드</h2>
+                    <label class="flex flex-col items-center justify-center w-full h-24 border-2 border-indigo-200 border-dashed rounded-xl cursor-pointer bg-indigo-50/30 hover:bg-indigo-50 transition">
+                        <div class="flex flex-col items-center justify-center pt-2 pb-3 text-center px-4">
+                            <i class="fas fa-file-excel text-indigo-400 text-xl mb-1"></i>
+                            <p class="text-[11px] text-indigo-600 font-medium" id="file-status">나이스/홈페이지 시간표 엑셀 업로드</p>
+                        </div>
+                        <input id="excel-upload" type="file" class="hidden" accept=".xlsx, .xls" onchange="processExcel(event)" />
+                    </label>
+                </section>
+
+                <section class="glass-card rounded-2xl p-6 shadow-md border border-slate-200">
+                    <h2 class="text-lg font-bold mb-4 text-slate-700 flex items-center gap-2">
+                        <i class="fas fa-book-open"></i> 오늘의 학습 일기
+                    </h2>
+                    <textarea id="diary-content" rows="6" 
+                        class="w-full p-4 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none transition text-sm mb-4"
+                        placeholder="예: 오늘 수학은 개념이 너무 복잡해서 혼자 공부가 더 필요할 것 같다. 사회는 수업 시간에 다 이해해서 복습만 해도 충분하다."></textarea>
+                    
+                    <div class="flex justify-between items-center mb-6">
+                        <span class="text-sm font-semibold">전반적 학습 성취도</span>
+                        <div class="flex gap-2">
+                            <button onclick="setSatisfaction(1)" class="sat-btn opacity-40 text-xl">😫</button>
+                            <button onclick="setSatisfaction(2)" class="sat-btn opacity-40 text-xl">😟</button>
+                            <button onclick="setSatisfaction(3)" class="sat-btn opacity-100 text-xl">😐</button>
+                            <button onclick="setSatisfaction(4)" class="sat-btn opacity-40 text-xl">🙂</button>
+                            <button onclick="setSatisfaction(5)" class="sat-btn opacity-40 text-xl">😊</button>
+                        </div>
+                    </div>
+
+                    <button onclick="generateSmartPlanner()" class="w-full bg-indigo-600 text-white font-bold py-4 rounded-xl hover:bg-indigo-700 shadow-lg transition-all transform active:scale-95">
+                        내일 맞춤 학습 플랜 생성
+                    </button>
+                </section>
+            </div>
+
+            <div class="lg:col-span-7 space-y-6">
+                <div id="empty-view" class="flex flex-col items-center justify-center h-full py-20 text-slate-400">
+                    <i class="fas fa-lightbulb text-6xl mb-4 opacity-20"></i>
+                    <p>기록을 바탕으로 내일의 <strong>공부+복습</strong> 계획을 세워드립니다.</p>
+                </div>
+
+                <div id="result-view" class="hidden space-y-6 animate-fade-in">
+                    
+                    <section class="bg-white rounded-2xl p-6 shadow-md border-l-8 border-indigo-500">
+                        <h2 class="text-xl font-bold mb-4 flex items-center gap-2">
+                            <i class="fas fa-brain text-indigo-500"></i> 맞춤형 학습 전략
+                        </h2>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
+                            <div class="p-4 bg-orange-50 rounded-xl border border-orange-100">
+                                <p class="text-xs font-bold text-orange-600 mb-2"><i class="fas fa-exclamation-circle"></i> 집중 공부 대상 (어려움)</p>
+                                <div id="bad-subjects" class="flex flex-wrap gap-2"></div>
+                            </div>
+                            <div class="p-4 bg-blue-50 rounded-xl border border-blue-100">
+                                <p class="text-xs font-bold text-blue-600 mb-2"><i class="fas fa-check-circle"></i> 가벼운 복습 대상 (원활)</p>
+                                <div id="good-subjects" class="flex flex-wrap gap-2"></div>
+                            </div>
+                        </div>
+                        
+                        <div id="analysis-text" class="text-slate-600 text-sm leading-relaxed p-3 bg-slate-50 rounded-lg"></div>
+                    </section>
+
+                    <section class="glass-card rounded-2xl p-6 shadow-md border border-slate-100">
+                        <div class="flex justify-between items-center mb-6">
+                            <h2 class="text-xl font-bold text-slate-800" id="planner-main-title">내일의 학습 타임라인</h2>
+                            <span class="text-xs font-bold text-indigo-500 px-3 py-1 bg-indigo-50 rounded-full" id="planner-date-label"></span>
+                        </div>
+                        <div id="planner-items" class="space-y-4"></div>
+                        <div id="no-data-msg" class="hidden text-center py-10 text-slate-400 italic text-sm">
+                            분석할 수 있는 과목 정보가 없습니다. 일기에 과목명을 포함해 보세요.
+                        </div>
+                    </section>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        let timetableData = [];
+        let satisfactionScore = 3;
+        const allowedCoreSubjects = ['국어', '영어', '수학', '과학', '사회', '한국사'];
+        
+        const badKeywords = ['헷갈', '어려', '힘들', '부족', '실수', '망했', '틀렸', '몰라', '이해 안', '공부 더'];
+        const goodKeywords = ['쉬워', '이해', '다 맞', '좋았', '뿌듯', '즐거', '잘했', '완벽', '괜찮'];
+
+        function processExcel(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const fileStatus = document.getElementById('file-status');
+            fileStatus.innerText = "파일 읽는 중...";
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, {type: 'array'});
+                    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+                    timetableData = XLSX.utils.sheet_to_json(sheet, { defval: "" });
+                    fileStatus.innerText = `데이터 연동 성공 (${timetableData.length}건)`;
+                    fileStatus.classList.add('text-green-600');
+                } catch (error) {
+                    fileStatus.innerText = "엑셀 읽기 실패";
+                    fileStatus.classList.add('text-red-600');
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function setSatisfaction(score) {
+            satisfactionScore = score;
+            document.querySelectorAll('.sat-btn').forEach((btn, idx) => {
+                btn.style.opacity = (idx + 1 === score) ? '1' : '0.4';
+            });
+        }
+
+        function generateSmartPlanner() {
+            const diary = document.getElementById('diary-content').value;
+            const selectedDateStr = document.getElementById('target-date').value;
+            const grade = document.getElementById('user-grade').value;
+            const className = document.getElementById('user-class').value;
+
+            if (timetableData.length === 0) { alert("시간표 엑셀 파일을 먼저 업로드해주세요."); return; }
+            if (!diary) { alert("오늘의 학습 일기를 작성해주세요."); return; }
+
+            const [y, m, d] = selectedDateStr.split('-').map(Number);
+            const tomorrowDate = new Date(y, m - 1, d + 1);
+            const tomorrowStr = `${tomorrowDate.getFullYear()}-${String(tomorrowDate.getMonth() + 1).padStart(2, '0')}-${String(tomorrowDate.getDate()).padStart(2, '0')}`;
+            const tomorrowDisplay = `${tomorrowDate.getFullYear()}년 ${tomorrowDate.getMonth()+1}월 ${tomorrowDate.getDate()}일`;
+
+            let hardSubjects = [];
+            let easySubjects = [];
+            const sentences = diary.split(/[.!?\n]/);
+
+            allowedCoreSubjects.forEach(subject => {
+                sentences.forEach(s => {
+                    if (s.includes(subject)) {
+                        const isBad = badKeywords.some(k => s.includes(k));
+                        const isGood = goodKeywords.some(k => s.includes(k));
+                        if (isBad) {
+                            if (!hardSubjects.includes(subject)) hardSubjects.push(subject);
+                        } else if (isGood) {
+                            if (!easySubjects.includes(subject)) easySubjects.push(subject);
+                        } else {
+                            if (!hardSubjects.includes(subject) && !easySubjects.includes(subject)) hardSubjects.push(subject);
+                        }
+                    }
+                });
+            });
+
+            document.getElementById('empty-view').classList.add('hidden');
+            document.getElementById('result-view').classList.remove('hidden');
+            document.getElementById('planner-date-label').innerText = `${tomorrowDisplay} 플랜`;
+
+            const badContainer = document.getElementById('bad-subjects');
+            const goodContainer = document.getElementById('good-subjects');
+            badContainer.innerHTML = hardSubjects.length ? '' : '<span class="text-xs text-slate-400">없음</span>';
+            goodContainer.innerHTML = easySubjects.length ? '' : '<span class="text-xs text-slate-400">없음</span>';
+
+            hardSubjects.forEach(s => badContainer.innerHTML += `<span class="px-2 py-1 bg-orange-100 text-orange-700 rounded-lg text-xs font-bold">#${s}</span>`);
+            easySubjects.forEach(s => goodContainer.innerHTML += `<span class="px-2 py-1 bg-blue-100 text-blue-700 rounded-lg text-xs font-bold">#${s}</span>`);
+
+            const filteredLessons = timetableData.filter(row => {
+                let rowDate = String(row['시간표일자'] || "").trim();
+                if (rowDate.length === 8) rowDate = rowDate.replace(/(\d{4})(\d{2})(\d{2})/, '$1-$2-$3');
+                const rowClass = String(row['학급명'] || '').trim();
+                const subjectName = String(row['수업내용'] || '').trim();
+                return rowDate === tomorrowStr && String(row['학년']) === grade && (rowClass === className || rowClass.includes(className + "반")) && allowedCoreSubjects.some(core => subjectName.includes(core));
+            });
+
+            const plannerContainer = document.getElementById('planner-items');
+            const noDataMsg = document.getElementById('no-data-msg');
+            plannerContainer.innerHTML = '';
+
+            let finalItems = [];
+
+            filteredLessons.sort((a, b) => (a['교시'] || 0) - (b['교시'] || 0)).forEach(lesson => {
+                const subName = String(lesson['수업내용']);
+                const isHard = hardSubjects.some(s => subName.includes(s));
+                const isEasy = easySubjects.some(s => subName.includes(s));
+                finalItems.push({
+                    label: `${lesson['교시']}`,
+                    subject: subName,
+                    isHard: isHard,
+                    isEasy: isEasy,
+                    subInfo: `내일 ${lesson['교시']}교시 수업 예정`
+                });
+            });
+
+            hardSubjects.forEach(hardSub => {
+                const alreadyAdded = finalItems.some(item => item.subject.includes(hardSub));
+                if (!alreadyAdded) {
+                    finalItems.push({
+                        label: `보충`,
+                        subject: hardSub,
+                        isHard: true,
+                        isEasy: false,
+                        subInfo: `내일 수업은 없으나 보충 학습 필요`
+                    });
+                }
+            });
+
+            if (finalItems.length > 0) {
+                noDataMsg.classList.add('hidden');
+                document.getElementById('analysis-text').innerHTML = `내일 시간표와 오늘 일기를 종합 분석했습니다. <strong>${hardSubjects.join(', ')}</strong> 과목은 수업 여부와 상관없이 집중 학습 시간에 포함되었습니다.`;
+
+                finalItems.forEach((itemData, idx) => {
+                    let time = '30분';
+                    let typeLabel = '일반 복습';
+                    let actionGuide = '주요 개념 및 키워드 정리';
+                    let colorClass = 'border-slate-100 bg-white';
+                    let badgeClass = 'bg-slate-100 text-slate-500';
+
+                    if (itemData.isHard) {
+                        time = '90분';
+                        typeLabel = '집중 공부 & 보충';
+                        actionGuide = '취약 개념 인강 시청 및 관련 문제 15개 풀이';
+                        colorClass = 'border-orange-200 bg-orange-50/50 shadow-sm';
+                        badgeClass = 'bg-orange-600 text-white';
+                    } else if (itemData.isEasy) {
+                        time = '45분';
+                        typeLabel = '심화 복습';
+                        actionGuide = '핵심 요약 및 응용 예제 확인';
+                        colorClass = 'border-blue-200 bg-blue-50/50';
+                        badgeClass = 'bg-blue-600 text-white';
+                    }
+
+                    const item = document.createElement('div');
+                    item.className = `p-5 rounded-2xl border ${colorClass} flex flex-col md:flex-row md:items-center gap-4 animate-fade-in`;
+                    item.style.animationDelay = `${idx * 0.1}s`;
+                    
+                    item.innerHTML = `
+                        <div class="flex items-center gap-4 flex-1">
+                            <div class="text-center min-w-[50px]">
+                                <p class="text-[10px] text-slate-400 font-bold">구분</p>
+                                <p class="text-lg font-black text-indigo-700">${itemData.label}</p>
+                            </div>
+                            <div class="h-10 w-[2px] bg-slate-200 hidden md:block"></div>
+                            <div>
+                                <div class="flex items-center gap-2 mb-1">
+                                    <span class="text-[10px] font-bold px-2 py-0.5 rounded-full ${itemData.isHard ? 'bg-orange-100 text-orange-600' : 'bg-slate-100 text-slate-500'}">
+                                        ${typeLabel}
+                                    </span>
+                                    <p class="text-xs text-slate-400">${itemData.subInfo}</p>
+                                </div>
+                                <p class="text-lg font-bold text-slate-800">${itemData.subject}</p>
+                                <p class="text-xs text-slate-500 mt-1"><i class="fas fa-arrow-right text-[10px] mr-1"></i> ${actionGuide}</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center justify-between md:justify-end gap-4 mt-3 md:mt-0 pt-3 md:pt-0 border-t md:border-t-0 border-slate-100 text-right">
+                            <div>
+                                <p class="text-[10px] text-slate-400 font-bold">권장 시간</p>
+                                <span class="text-sm font-bold ${badgeClass} px-3 py-1 rounded-lg inline-block mt-1">
+                                    ${time}
+                                </span>
+                            </div>
+                        </div>
+                    `;
+                    plannerContainer.appendChild(item);
+                });
+            } else {
+                noDataMsg.classList.remove('hidden');
+            }
+
+            document.getElementById('result-view').scrollIntoView({ behavior: 'smooth' });
+        }
+    </script>
+</body>
+</html>
